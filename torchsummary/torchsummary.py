@@ -113,4 +113,4 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
     print("Params size (MB): %0.2f" % total_params_size)
     print("Estimated Total Size (MB): %0.2f" % total_size)
     print("----------------------------------------------------------------")
-    # return summary
+    return summary
