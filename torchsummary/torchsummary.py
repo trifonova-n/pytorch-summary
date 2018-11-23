@@ -109,7 +109,7 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
     # print(type(x[0]))
 
     # create properties
-    summary = Summary()
+    summary = Summary(input_size, batch_size)
     hooks = []
 
     # register hook
