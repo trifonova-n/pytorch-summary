@@ -6,6 +6,54 @@ from collections import OrderedDict
 import numpy as np
 
 
+class Summary(OrderedDict):
+    def __init__(self, input_size, batch_size, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.input_size = input_size
+        self.batch_size = batch_size
+
+    def __str__(self):
+        str_list = []
+        str_list.append("----------------------------------------------------------------")
+        line_new = "{:>20}  {:>25} {:>15}".format("Layer (type)", "Output Shape", "Param #")
+        str_list.append(line_new)
+        str_list.append("================================================================")
+        total_params = 0
+        total_output = 0
+        trainable_params = 0
+        for layer in self:
+            # input_shape, output_shape, trainable, nb_params
+            line_new = "{:>20}  {:>25} {:>15}".format(
+                layer,
+                str(self[layer]["output_shape"]),
+                "{0:,}".format(self[layer]["nb_params"]),
+            )
+            total_params += self[layer]["nb_params"]
+            total_output += np.prod(self[layer]["output_shape"])
+            if "trainable" in self[layer]:
+                if self[layer]["trainable"] == True:
+                    trainable_params += self[layer]["nb_params"]
+            str_list.append(line_new)
+
+        # assume 4 bytes/number (float on cuda).
+        input_sizes = [np.prod(in_size) for in_size in self.input_size]
+        total_input_size = abs(np.prod(input_sizes) * self.batch_size * 4. / (1024 ** 2.))
+        total_output_size = abs(2. * total_output * 4. / (1024 ** 2.))  # x2 for gradients
+        total_params_size = abs(total_params.numpy() * 4. / (1024 ** 2.))
+        total_size = total_params_size + total_output_size + total_input_size
+
+        str_list.append("================================================================")
+        str_list.append("Total params: {0:,}".format(total_params))
+        str_list.append("Trainable params: {0:,}".format(trainable_params))
+        str_list.append("Non-trainable params: {0:,}".format(total_params - trainable_params))
+        str_list.append("----------------------------------------------------------------")
+        str_list.append("Input size (MB): %0.2f" % total_input_size)
+        str_list.append("Forward/backward pass size (MB): %0.2f" % total_output_size)
+        str_list.append("Params size (MB): %0.2f" % total_params_size)
+        str_list.append("Estimated Total Size (MB): %0.2f" % total_size)
+        str_list.append("----------------------------------------------------------------")
+        return '\n'.join(str_list)
+
 def summary(model, input_size, batch_size=-1, device="cuda"):
 
     def register_hook(module):
@@ -61,7 +109,7 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
     # print(type(x[0]))
 
     # create properties
-    summary = OrderedDict()
+    summary = Summary()
     hooks = []
 
     # register hook
@@ -75,42 +123,5 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
     for h in hooks:
         h.remove()
 
-    print("----------------------------------------------------------------")
-    line_new = "{:>20}  {:>25} {:>15}".format("Layer (type)", "Output Shape", "Param #")
-    print(line_new)
-    print("================================================================")
-    total_params = 0
-    total_output = 0
-    trainable_params = 0
-    for layer in summary:
-        # input_shape, output_shape, trainable, nb_params
-        line_new = "{:>20}  {:>25} {:>15}".format(
-            layer,
-            str(summary[layer]["output_shape"]),
-            "{0:,}".format(summary[layer]["nb_params"]),
-        )
-        total_params += summary[layer]["nb_params"]
-        total_output += np.prod(summary[layer]["output_shape"])
-        if "trainable" in summary[layer]:
-            if summary[layer]["trainable"] == True:
-                trainable_params += summary[layer]["nb_params"]
-        print(line_new)
 
-    # assume 4 bytes/number (float on cuda).
-    input_sizes = [np.prod(in_size) for in_size in input_size]
-    total_input_size = abs(np.prod(input_sizes) * batch_size * 4. / (1024 ** 2.))
-    total_output_size = abs(2. * total_output * 4. / (1024 ** 2.))  # x2 for gradients
-    total_params_size = abs(total_params.numpy() * 4. / (1024 ** 2.))
-    total_size = total_params_size + total_output_size + total_input_size
-
-    print("================================================================")
-    print("Total params: {0:,}".format(total_params))
-    print("Trainable params: {0:,}".format(trainable_params))
-    print("Non-trainable params: {0:,}".format(total_params - trainable_params))
-    print("----------------------------------------------------------------")
-    print("Input size (MB): %0.2f" % total_input_size)
-    print("Forward/backward pass size (MB): %0.2f" % total_output_size)
-    print("Params size (MB): %0.2f" % total_params_size)
-    print("Estimated Total Size (MB): %0.2f" % total_size)
-    print("----------------------------------------------------------------")
     return summary
